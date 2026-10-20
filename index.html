@@ -7,7 +7,7 @@
   <title>TechParts 3D | Digitaler Bauteilkatalog</title>
   <link rel="stylesheet" href="styles.css">
   <script type="importmap">
-    {"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js"}}
+    {"imports":{"three":"https://unpkg.com/three@0.169.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.169.0/examples/jsm/"}}
   </script>
 </head>
 <body>
@@ -35,16 +35,26 @@
           <div class="model-stage" id="heroModel"><div class="model-placeholder"><div class="flange-art"><div class="flange-ring"></div><div class="flange-hole h1"></div><div class="flange-hole h2"></div><div class="flange-hole h3"></div><div class="flange-hole h4"></div><div class="flange-center"></div></div><span>3D</span></div></div>
           <div class="model-axis axis-x">X</div><div class="model-axis axis-y">Y</div><div class="model-axis axis-z">Z</div>
           <div class="visual-tag tag-bottom"><span class="crosshair">⌖</span><span data-i18n="dragHint">Ziehen zum Drehen · Scrollen zum Zoomen</span></div>
-          <div class="visual-caption"><span>TP-FL-100</span><span data-i18n="sampleModel">BEISPIELMODELL / FLANSCH</span></div>
+          <div class="visual-caption"><span>TP-CAD-001</span><span data-i18n="sampleModel">EIGENES CAD-MODELL / STUFENWELLE</span></div>
         </div>
       </div>
       <div class="wrap hero-bottom"><span>01 / 03</span><div class="hero-bottom-line"></div><span data-i18n="heroBottom">ENGINEERING MEETS SOFTWARE</span></div>
     </section>
     <section class="metrics"><div class="wrap metrics-grid"><div><strong>01</strong><span data-i18n="metric1">Interaktives 3D-Modell</span></div><div><strong>02</strong><span data-i18n="metric2">Technische Spezifikationen</span></div><div><strong>03</strong><span data-i18n="metric3">Schnelle Anfrage</span></div><div><strong>DE / EN</strong><span data-i18n="metric4">Zweisprachige Oberfläche</span></div></div></section>
+    <section class="section process-section" id="process">
+      <div class="wrap">
+        <div class="section-head"><div><div class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="processEyebrow">VOM CAD INS WEB</span></div><h2 data-i18n="processTitle">Vom Entwurf bis zum <em>Browser.</em></h2></div><p data-i18n="processDesc">Drei eigene CAD-Modelle, für das Web exportiert und mit den Originalzeichnungen verbunden.</p></div>
+        <div class="process-grid">
+          <article class="process-card"><span class="process-number">01</span><div class="process-symbol">⌁</div><h3 data-i18n="processStep1Title">01 · Konstruieren</h3><p data-i18n="processStep1Text">Stufenwelle und Keilriemenscheibe in KOMPAS-3D v25; Wälzlager in Autodesk Fusion.</p></article>
+          <article class="process-card"><span class="process-number">02</span><div class="process-symbol">⇢</div><h3 data-i18n="processStep2Title">02 · Exportieren</h3><p data-i18n="processStep2Text">GLB für die 3D-Vorschau und PDF für technische Zeichnungen.</p></article>
+          <article class="process-card"><span class="process-number">03</span><div class="process-symbol">◉</div><h3 data-i18n="processStep3Title">03 · Interaktiv darstellen</h3><p data-i18n="processStep3Text">Three.js lädt die Modelle im Browser. Modelle, Spezifikationen und Zeichnungen sind getrennt zugänglich.</p></article>
+        </div>
+      </div>
+    </section>
     <section class="section catalog-section" id="catalog">
       <div class="wrap">
         <div class="section-head"><div><div class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="catalogEyebrow">PRODUKTE / 01</span></div><h2 data-i18n="catalogTitle">Bauteile im <em>Überblick.</em></h2></div><p data-i18n="catalogDesc">Durchsuche die Beispieldatenbank und wähle ein Bauteil, um technische Details zu sehen.</p></div>
-        <div class="catalog-tools"><label class="searchbox"><span>⌕</span><input id="searchInput" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Bauteil, Material oder Artikelnummer suchen …"></label><div class="filters"><button class="filter active" data-filter="all" data-i18n="filterAll">Alle Bauteile</button><button class="filter" data-filter="flange" data-i18n="filterFlange">Flansche</button><button class="filter" data-filter="mount" data-i18n="filterMount">Halterungen</button></div><span class="result-count" id="resultCount">3 BAUTEILE</span></div>
+        <div class="catalog-tools"><label class="searchbox"><span>⌕</span><input id="searchInput" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Bauteil, Material oder Artikelnummer suchen …"></label><div class="filters"><button class="filter active" data-filter="all" data-i18n="filterAll">Alle Bauteile</button><button class="filter" data-filter="shaft" data-i18n="filterShaft">Wellen</button><button class="filter" data-filter="pulley" data-i18n="filterPulley">Riemenscheiben</button><button class="filter" data-filter="bearing" data-i18n="filterBearing">Lager</button></div><span class="result-count" id="resultCount">3 BAUTEILE</span></div>
         <div class="product-grid" id="productGrid"></div>
       </div>
     </section>
@@ -63,7 +73,7 @@
     </section>
     <section class="section request-section" id="request">
       <div class="wrap request-layout">
-        <div class="request-copy"><div class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="requestEyebrow">KONTAKT / 03</span></div><h2 data-i18n="requestTitle">Lass uns über dein <em>Projekt sprechen.</em></h2><p data-i18n="requestDesc">Sende eine unverbindliche Demo-Anfrage. Die Daten werden nicht übertragen; du kannst sie lokal als CSV-Datei für Excel exportieren.</p><div class="request-points"><div><span>01</span><p data-i18n="requestPoint1">Bauteil und Menge auswählen</p></div><div><span>02</span><p data-i18n="requestPoint2">Kontaktdaten eintragen</p></div><div><span>03</span><p data-i18n="requestPoint3">CSV-Datei herunterladen</p></div></div><div class="privacy-note"><span>ⓘ</span><p data-i18n="privacyNote">Bitte keine echten sensiblen Daten verwenden. Dies ist ein öffentliches Portfolio-Demo-Projekt ohne Backend.</p></div></div>
+        <div class="request-copy"><div class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="requestEyebrow">KONTAKT / 03</span></div><h2 data-i18n="requestTitle">Lass uns über dein <em>Projekt sprechen.</em></h2><p data-i18n="requestDesc">Anfragen werden in diesem Browser gesammelt und können später gemeinsam als CSV-Datei für Excel exportiert werden. Es wird nichts an einen Server übertragen.</p><div class="request-points"><div><span>01</span><p data-i18n="requestPoint1">Bauteil und Menge auswählen</p></div><div><span>02</span><p data-i18n="requestPoint2">Kontaktdaten eintragen</p></div><div><span>03</span><p data-i18n="requestPoint3">Alle Anfragen gesammelt exportieren</p></div></div><div class="privacy-note"><span>ⓘ</span><p data-i18n="privacyNote">Bitte keine echten sensiblen Daten verwenden. Dies ist ein öffentliches Portfolio-Demo-Projekt ohne Backend.</p></div></div>
         <form class="request-form" id="requestForm">
           <div class="form-heading"><span class="micro-label" data-i18n="formLabel">ANFRAGEFORMULAR</span><span>TP / 2026</span></div>
           <div class="form-row"><label><span data-i18n="labelName">Vor- und Nachname *</span><input name="name" required minlength="2" autocomplete="name" placeholder="Max Mustermann"></label><label><span data-i18n="labelCompany">Unternehmen</span><input name="company" autocomplete="organization" placeholder="Muster GmbH"></label></div>
@@ -71,16 +81,17 @@
           <div class="form-row"><label><span data-i18n="labelPart">Bauteil *</span><select name="part" id="formPart" required></select></label><label><span data-i18n="labelQuantity">Menge (Stück) *</span><input type="number" name="quantity" id="formQuantity" min="1" max="10000" value="10" required></label></div>
           <label class="full-label"><span data-i18n="labelMessage">Nachricht / Anmerkungen</span><textarea name="message" rows="3" placeholder="…" data-i18n-placeholder="messagePlaceholder"></textarea></label>
           <label class="consent"><input type="checkbox" required><span data-i18n="consent">Ich bestätige, dass dies eine Demo-Anfrage mit Testdaten ist. *</span></label>
-          <button type="submit" class="button button-accent submit-button"><span data-i18n="exportRequest">Anfrage als CSV exportieren</span><span>↗</span></button>
+          <button type="submit" class="button button-accent submit-button"><span data-i18n="saveRequest">Anfrage lokal speichern</span><span>✓</span></button>
           <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
-          <p class="form-footnote" data-i18n="formFootnote">* Pflichtfelder · Export erfolgt lokal in deinem Browser.</p>
+          <button type="button" id="exportAllRequests" class="button button-outline export-all-button" disabled><span data-i18n="exportAllRequests">Alle Anfragen gesammelt als CSV exportieren</span><strong id="requestCount">0</strong></button>
+          <p class="form-footnote" data-i18n="formFootnote">* Pflichtfelder · Anfragen bleiben in diesem Browser, bis du sie gesammelt exportierst.</p>
         </form>
       </div>
     </section>
     <section class="section project-section" id="about"><div class="wrap project-inner"><div><div class="eyebrow"><span class="eyebrow-line"></span><span data-i18n="projectEyebrow">ÜBER DAS PROJEKT</span></div><h2 data-i18n="projectTitle">Ingenieurwissen trifft <em>Softwareentwicklung.</em></h2></div><div class="project-description"><p data-i18n="projectDesc">TechParts 3D ist ein eigenständiges Portfolio-Projekt. Es verbindet CAD-Grundlagen mit Webentwicklung und zeigt, wie technische Produktinformationen digital strukturiert und zugänglich gemacht werden können.</p><div class="tech-stack"><span>HTML5</span><span>CSS3</span><span>JavaScript</span><span>Three.js</span><span>CSV</span></div><p class="project-note" data-i18n="projectNote">Alle Produktangaben, Lagerbestände und Lieferzeiten sind erfundene Beispieldaten. Das 3D-Modell ist eine vereinfachte Demonstration.</p></div></div></section>
   </main>
-  <footer class="footer"><div class="wrap footer-inner"><a class="brand footer-brand" href="#"><span class="brand-mark"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 12 20 5l13 7v16l-13 7L7 28Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7 12 13 7 13-7M20 19v15" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><span>TechParts<span class="brand-light"> 3D</span><small>ENGINEERING CATALOG</small></span></a><p data-i18n="footerText">Unabhängiges Ausbildungs- und Portfolio-Projekt · Keine Verbindung zu INNEO Solutions GmbH.</p><a href="#top" class="back-top" data-i18n="backTop">Nach oben ↑</a></div></footer>
-  <dialog id="drawingDialog" class="drawing-dialog"><div class="dialog-head"><div><span class="micro-label" data-i18n="drawingDialogLabel">TECHNISCHE ZEICHNUNG</span><h3 id="drawingHeading">Flansch TP-FL-100</h3></div><button id="closeDrawing" class="icon-button" aria-label="Schließen">✕</button></div><div id="drawingCanvas" class="drawing-canvas"></div><p class="disclaimer" data-i18n="drawingDisclaimer">Schematische Demo-Zeichnung mit Beispielmaßen. Nicht für Fertigung oder sicherheitsrelevante Anwendungen verwenden.</p></dialog>
+  <footer class="footer"><div class="wrap footer-inner"><a class="brand footer-brand" href="#"><span class="brand-mark"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 12 20 5l13 7v16l-13 7L7 28Z" fill="none" stroke="currentColor" stroke-width="2"/><path d="m7 12 13 7 13-7M20 19v15" fill="none" stroke="currentColor" stroke-width="2"/></svg></span><span>TechParts<span class="brand-light"> 3D</span><small>ENGINEERING CATALOG</small></span></a><p data-i18n="footerText">Unabhängiges Ausbildungs- und Portfolio-Projekt.</p><a href="#top" class="back-top" data-i18n="backTop">Nach oben ↑</a></div></footer>
+  <dialog id="drawingDialog" class="drawing-dialog"><div class="dialog-head"><div><span class="micro-label" data-i18n="drawingDialogLabel">TECHNISCHE ZEICHNUNG</span><h3 id="drawingHeading">Flansch TP-FL-100</h3></div><button id="closeDrawing" class="icon-button" aria-label="Schließen">✕</button></div><div id="drawingCanvas" class="drawing-canvas"></div><p class="disclaimer" data-i18n="drawingDisclaimer">Dies sind die bereitgestellten Originalzeichnungen. Maßgeblich sind die Angaben in den jeweiligen Zeichnungsdateien.</p></dialog>
   <script type="module" src="app.js"></script>
 </body>
 </html>
