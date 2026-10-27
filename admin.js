@@ -207,8 +207,12 @@ async function exportExcel(){
     const sheet=wb.addWorksheet('Anfragen');sheet.properties.defaultRowHeight=22;sheet.views=[{state:'frozen',ySplit:1,topLeftCell:'A2',activeCell:'A2'}];
     const headers=['Vorgangs-ID','Eingegangen am','Status',...fields.map(f=>f.label)];
     const rows=state.inquiries.map(r=>[r.id,new Date(r.created_at),({new:'Neu',in_progress:'In Bearbeitung',closed:'Abgeschlossen'})[r.status]||r.status,...fields.map(f=>displayValue(r.data?.[f.key]))]);
-    sheet.addTable({name:'TechPartsAnfragen',ref:'A1',headerRow:true,totalsRow:false,style:{theme:'TableStyleMedium2',showRowStripes:true},columns:headers.map(name=>({name,filterButton:true})),rows});
-    sheet.autoFilter={from:{row:1,column:1},to:{row:1,column:headers.length}};
+    // Use a worksheet-level AutoFilter instead of an Excel structured Table.
+    // This avoids an invalid table XML definition that caused Excel to remove
+    // the table and its filter during workbook repair.
+    sheet.addRow(headers);
+    sheet.addRows(rows);
+    sheet.autoFilter={from:{row:1,column:1},to:{row:rows.length+1,column:headers.length}};
     sheet.getRow(1).height=34;sheet.getRow(1).eachCell(cell=>{cell.font={bold:true,color:{argb:'FFFFFFFF'},size:10};cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF294448'}};cell.alignment={vertical:'middle',wrapText:true};cell.border={bottom:{style:'medium',color:{argb:'FF9BC84C'}}};});
     sheet.columns.forEach((col,i)=>{let width=i===0?18:i===1?21:i===2?20:16;if(i>=3){const f=fields[i-3];const values=state.inquiries.map(r=>displayValue(r.data?.[f.key]));width=Math.max(15,Math.min(34,Math.max(f.label.length,...values.map(v=>Math.min(v.length,34)))+2));}col.width=width;});
     sheet.eachRow((row,rowNumber)=>{if(rowNumber===1)return;row.height=28;row.eachCell((cell,colNumber)=>{cell.alignment={vertical:'top',wrapText:true};cell.border={bottom:{style:'hair',color:{argb:'FFE0E6DD'}}};if(rowNumber%2===0)cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF7F9F5'}};if(colNumber===2){cell.numFmt='dd.mm.yyyy hh:mm';cell.alignment={vertical:'top',wrapText:false};}if(colNumber===3){const status=cell.value;const color=status==='Neu'?'FFFFE7C2':status==='In Bearbeitung'?'FFDCEAF8':'FFDFEED1';cell.fill={type:'pattern',pattern:'solid',fgColor:{argb:color}};cell.font={bold:true,color:{argb:'FF243229'}};}});});
@@ -216,7 +220,7 @@ async function exportExcel(){
     const configRows=state.fields.map(f=>({key:f.field_key,de:f.label_de,en:f.label_en,type:f.input_type,required:f.is_required?'Ja':'Nein',enabled:f.enabled?'Ja':'Nein',options:Array.isArray(f.options)?f.options.join(' | '):''}));configRows.forEach(r=>config.addRow(r));
     config.getRow(1).height=30;config.getRow(1).eachCell(c=>{c.font={bold:true,color:{argb:'FFFFFFFF'}};c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FF5C7C43'}};c.alignment={vertical:'middle',wrapText:true};});config.views=[{state:'frozen',ySplit:1,topLeftCell:'A2'}];
     config.eachRow((row,n)=>{if(n===1)return;row.eachCell(c=>{c.alignment={vertical:'top',wrapText:true};c.border={bottom:{style:'hair',color:{argb:'FFE0E6DD'}}};if(n%2===0)c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFF7F9F5'}};});});
-    const buffer=await wb.xlsx.writeBuffer();const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`TechParts3D_Anfragen_${new Date().toISOString().slice(0,10)}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);message('Excel-Datei mit Übersicht, Filtertabelle und Formularfeldern wurde erstellt.',false,'#requestsMessage');
+    const buffer=await wb.xlsx.writeBuffer();const blob=new Blob([buffer],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`TechParts3D_Anfragen_${new Date().toISOString().slice(0,10)}.xlsx`;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);message('Excel-Datei mit Übersicht, Filter und Formularfeldern wurde erstellt.',false,'#requestsMessage');
   }catch(err){console.error(err);message('Excel-Export fehlgeschlagen. Prüfe die Browserkonsole und lade die Seite neu.',true,'#requestsMessage');}
   finally{btn.disabled=false;}
 }
