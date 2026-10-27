@@ -1,5 +1,21 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+
+const backendConfigured = Boolean(SUPABASE_URL?.trim() && SUPABASE_ANON_KEY?.trim());
+let supabaseClient = null;
+let secureBackendLoadError = null;
+let backendFormFields = [];
+let backendFormReady = false;
+if (backendConfigured) {
+  try {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    supabaseClient = createClient(SUPABASE_URL.trim(), SUPABASE_ANON_KEY.trim(), { auth: { persistSession: false, autoRefreshToken: false } });
+  } catch (error) {
+    secureBackendLoadError = error;
+    console.error('Could not load the secure form backend client.', error);
+  }
+}
 
 const parts = [
   {
@@ -257,7 +273,7 @@ function createViewer(container,p){
   };
 }
 function disposeObject(obj){obj.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material){if(Array.isArray(o.material))o.material.forEach(m=>m.dispose());else o.material.dispose()}})}
-function setLanguage(next){lang=next;document.documentElement.lang=lang;$$('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(words[lang][key])el.innerHTML=words[lang][key]});$$('[data-i18n-placeholder]').forEach(el=>{const key=el.dataset.i18nPlaceholder;if(words[lang][key])el.placeholder=words[lang][key]});$('#langToggle').innerHTML=lang==='de'?'DE <span>/</span> EN':'DE <span>/</span> EN';renderProducts();renderDetails();$('#formMessage').textContent='';updateRequestExportUI();}
+function setLanguage(next){lang=next;document.documentElement.lang=lang;$$('[data-i18n]').forEach(el=>{const key=el.dataset.i18n;if(words[lang][key])el.innerHTML=words[lang][key]});$$('[data-i18n-placeholder]').forEach(el=>{const key=el.dataset.i18nPlaceholder;if(words[lang][key])el.placeholder=words[lang][key]});$('#langToggle').innerHTML=lang==='de'?'DE <span>/</span> EN':'DE <span>/</span> EN';renderProducts();renderDetails();$('#formMessage').textContent='';updateRequestExportUI();if(backendConfigured){if($('#requestDesc'))$('#requestDesc').textContent=lang==='de'?'Anfragen werden über Supabase gespeichert. Nutze echte Kontaktdaten erst nach erfolgreichem Sicherheits- und Zugriffstest.':'Inquiries are stored through Supabase. Use real contact data only after the security and access tests have passed.';if($('#privacyNote'))$('#privacyNote').textContent=lang==='de'?'Backend-Modus: Bitte die Datenschutzerklärung veröffentlichen und keine sensiblen Daten übermitteln, solange die Konfiguration nicht geprüft wurde.':'Backend mode: publish a privacy notice and do not submit sensitive information until the configuration has been reviewed.';const submitLabel=$('#requestForm .submit-button span:first-child');if(submitLabel)submitLabel.textContent=lang==='de'?'Anfrage sicher senden':'Submit inquiry';const stepThree=$('#request .request-points>div:nth-child(3) p');if(stepThree)stepThree.textContent=lang==='de'?'Anfrage sicher senden':'Submit inquiry securely';const foot=$('.form-footnote');if(foot)foot.textContent=lang==='de'?'Anfragen werden über den geschützten Backend-Zugang übermittelt.':'Inquiries are submitted through the protected backend.';}if(backendFormReady)renderSecureFormFields();}
 $('#langToggle').addEventListener('click',()=>setLanguage(lang==='de'?'en':'de'));
 $('#searchInput').addEventListener('input',renderProducts);
 $$('.filter').forEach(b=>b.addEventListener('click',()=>{activeFilter=b.dataset.filter;$$('.filter').forEach(x=>x.classList.toggle('active',x===b));renderProducts()}));
@@ -292,8 +308,33 @@ function exportAllRequests(){
   const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='techparts3d-anfragen-gesamt.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000);
   $('#formMessage').textContent=t('requestsExported').replace('{count}',String(requests.length));$('#formMessage').classList.remove('error');
 }
-$('#requestForm').addEventListener('submit',e=>{
+$('#requestForm').addEventListener('submit',async e=>{
   e.preventDefault();const form=e.currentTarget;if(!form.reportValidity())return;
+  // When a backend is configured, never silently fall back to browser-only storage on an error.
+  if(backendConfigured){
+    if(!supabaseClient||!backendFormReady){$('#formMessage').textContent=lang==='de'?'Sicheres Formular aktuell nicht verfügbar. Es wurden keine Daten gespeichert.':'Secure form is unavailable. No data was saved.';$('#formMessage').classList.add('error');return;}
+    const payload={};
+    for(const field of backendFormFields){
+      if(!field.enabled)continue;
+      const input=form.elements.namedItem(field.field_key);
+      if(!input)continue;
+      if(field.input_type==='checkbox')payload[field.field_key]=Boolean(input.checked);
+      else if(field.input_type==='number')payload[field.field_key]=input.value===''?null:Number(input.value);
+      else payload[field.field_key]=String(input.value??'').trim();
+    }
+    payload._language=lang;
+    try{
+      const {error}=await supabaseClient.from('inquiries').insert({data:payload});
+      if(error)throw error;
+      $('#formMessage').textContent=lang==='de'?'Vielen Dank. Die Anfrage wurde übermittelt.':'Thank you. Your inquiry was submitted.';
+      $('#formMessage').classList.remove('error');form.reset();return;
+    }catch(error){
+      console.error('Secure inquiry submission failed:',error);
+      $('#formMessage').textContent=lang==='de'?'Übermittlung fehlgeschlagen. Bitte später erneut versuchen. Es wurden keine lokalen Kopien erstellt.':'Submission failed. Please try again later. No local copy was created.';
+      $('#formMessage').classList.add('error');return;
+    }
+  }
+  // Legacy portfolio demo mode (only when no backend credentials are configured). Use test data only.
   const data=new FormData(form);const p=parts.find(x=>x.id===data.get('part'));if(!p)return;
   const requests=getStoredRequests();
   requests.push({name:data.get('name'),company:data.get('company'),email:data.get('email'),phone:data.get('phone'),partId:p.id,partName:p.name[lang],quantity:data.get('quantity'),message:data.get('message'),language:lang,timestamp:new Date().toISOString()});
@@ -303,6 +344,51 @@ $('#requestForm').addEventListener('submit',e=>{
   form.reset();fillFormParts();$('#formQuantity').value=10;
 });
 $('#exportAllRequests').addEventListener('click',exportAllRequests);
+
+function renderSecureFormFields(){
+  const host=$('#dynamicFormFields');if(!host)return;
+  const previous={};host.querySelectorAll('[name]').forEach(input=>{previous[input.name]=input.type==='checkbox'?input.checked:input.value;});
+  const fields=[...backendFormFields].filter(f=>f.enabled).sort((a,b)=>a.position-b.position);
+  const blocks=[];
+  for(let i=0;i<fields.length;i++){
+    const f=fields[i];const label=lang==='de'?f.label_de:f.label_en;
+    const req=f.is_required?' required':'';
+    const safeKey=esc(f.field_key);
+    let control='';
+    if(f.input_type==='textarea')control=`<textarea name="${safeKey}" rows="3"${req}></textarea>`;
+    else if(f.input_type==='select')control=`<select name="${safeKey}"${req}><option value="">${lang==='de'?'Bitte auswählen':'Please select'}</option>${(Array.isArray(f.options)?f.options:[]).map(v=>`<option value="${esc(v)}">${esc(v)}</option>`).join('')}</select>`;
+    else if(f.input_type==='checkbox')control=`<input type="checkbox" name="${safeKey}" value="true"${req}>`;
+    else control=`<input type="${['text','email','tel','number','date'].includes(f.input_type)?f.input_type:'text'}" name="${safeKey}"${f.input_type==='number'?' min="1"':''}${req}>`;
+    const checkboxClass=f.input_type==='checkbox'?' request-checkbox':' request-dynamic-control';
+    blocks.push(`<label class="secure-field ${f.input_type==='textarea'?'secure-field-full':''}${f.input_type==='checkbox'?' secure-field-check':''}"><span>${esc(label||f.field_key)}${f.is_required?' *':''}</span><div class="secure-control${checkboxClass}">${control}</div></label>`);
+  }
+  host.innerHTML=blocks.join('');
+  host.querySelectorAll('[name]').forEach(input=>{if(Object.prototype.hasOwnProperty.call(previous,input.name)){if(input.type==='checkbox')input.checked=Boolean(previous[input.name]);else input.value=previous[input.name];}});
+}
+async function initializeSecureRequestForm(){
+  if(!backendConfigured)return;
+  const legacy=$('#legacyFormFields'),dynamic=$('#dynamicFormFields');
+  const submit=$('#requestForm button[type="submit"]');
+  $('#exportAllRequests').hidden=true;
+  const foot=$('.form-footnote');if(foot)foot.textContent=lang==='de'?'Anfragen werden über den geschützten Backend-Zugang übermittelt.':'Inquiries are submitted through the protected backend.';
+  $('#requestDesc').textContent=lang==='de'?'Anfragen werden über Supabase gespeichert. Nutze echte Kontaktdaten erst nach erfolgreichem Sicherheits- und Zugriffstest.':'Inquiries are stored through Supabase. Use real contact data only after the security and access tests have passed.';
+  $('#privacyNote').textContent=lang==='de'?'Backend-Modus: Bitte die Datenschutzerklärung veröffentlichen und keine sensiblen Daten übermitteln, solange die Konfiguration nicht geprüft wurde.':'Backend mode: publish a privacy notice and do not submit sensitive information until the configuration has been reviewed.';
+  if(!supabaseClient){if(submit)submit.disabled=true;$('#formMessage').textContent=lang==='de'?'Backend-Konfiguration oder Verbindung fehlt. Es werden keine Daten gespeichert.':'Backend configuration or connection is missing. No data will be saved.';$('#formMessage').classList.add('error');return;}
+  try{
+    const {data,error}=await supabaseClient.from('form_fields').select('id,field_key,label_de,label_en,input_type,is_required,options,position,enabled').eq('enabled',true).order('position');
+    if(error)throw error;
+    if(!Array.isArray(data)||!data.length)throw new Error('No enabled fields are configured.');
+    backendFormFields=data;backendFormReady=true;
+    legacy.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=true;if(control.name){control.dataset.legacyName=control.name;control.name=`legacy_${control.name}`;}});
+    legacy.hidden=true;dynamic.hidden=false;renderSecureFormFields();
+  }catch(error){
+    console.error('Could not load public form configuration:',error);
+    if(submit)submit.disabled=true;
+    $('#formMessage').textContent=lang==='de'?'Sicheres Formular kann nicht geladen werden. Bitte Konfiguration prüfen. Es wurden keine Daten gespeichert.':'Secure form could not be loaded. Check configuration. No data was saved.';
+    $('#formMessage').classList.add('error');
+  }
+}
+
 $('#showDrawing').addEventListener('click',()=>$('#drawingDialog').showModal());
 $('#closeDrawing').addEventListener('click',()=>$('#drawingDialog').close());
 $('#drawingDialog').addEventListener('click',e=>{if(e.target===$('#drawingDialog'))$('#drawingDialog').close()});
@@ -312,5 +398,6 @@ $$('.main-nav a').forEach(a=>a.addEventListener('click',()=>$('.main-nav').class
 // Apply the German UI translations at startup as well as when the language toggle is clicked.
 setLanguage(lang);
 updateRequestExportUI();
+if(backendConfigured){initializeSecureRequestForm();}else if(secureBackendLoadError){const submit=$('#requestForm button[type="submit"]');if(submit)submit.disabled=true;}
 $('#heroModel').parentElement.querySelector('.visual-caption span:first-child').textContent=parts[0].id;
 heroViewer=createViewer($('#heroModel'),parts[0]);

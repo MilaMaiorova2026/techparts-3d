@@ -29,3 +29,16 @@
 .export-all-button strong{font:600 12px var(--mono);min-width:26px;padding:4px 8px;text-align:center;border-radius:20px;background:#edf2e8}
 .export-all-button:disabled{opacity:.48;cursor:not-allowed;transform:none}
 @media(max-width:680px){.process-grid{grid-template-columns:1fr}.process-card{min-height:0}}
+
+/* Secure, database-driven inquiry form fields */
+#dynamicFormFields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:0 0 16px}
+#dynamicFormFields[hidden],#legacyFormFields[hidden]{display:none!important}
+#dynamicFormFields .secure-field{display:block;min-width:0;margin:0}
+#dynamicFormFields .secure-field>span{display:block;font-size:11px;font-weight:600;margin-bottom:7px;color:var(--ink)}
+#dynamicFormFields .secure-field-full{grid-column:1/-1}
+#dynamicFormFields .secure-control input:not([type=checkbox]),#dynamicFormFields .secure-control select,#dynamicFormFields .secure-control textarea{width:100%;border:1px solid #dfe5de;background:#fbfcfa;border-radius:4px;padding:12px;font-size:12px;outline:none;color:var(--ink);font-family:inherit}
+#dynamicFormFields .secure-control input:focus,#dynamicFormFields .secure-control select:focus,#dynamicFormFields .secure-control textarea:focus{border-color:#9cbe68}
+#dynamicFormFields .secure-field-check{grid-column:1/-1}
+#dynamicFormFields .secure-field-check .secure-control{display:flex;align-items:center;min-height:42px}
+#dynamicFormFields .secure-field-check input{accent-color:#83b52c;width:16px;height:16px}
+@media(max-width:680px){#dynamicFormFields{grid-template-columns:1fr}}

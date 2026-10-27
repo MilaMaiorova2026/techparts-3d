@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <meta name="description" content="Privater Verwaltungsbereich von TechParts 3D.">
+  <title>TechParts 3D | Admin</title>
+  <link rel="stylesheet" href="admin.css">
+  <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+</head>
+<body>
+  <div class="admin-topbar">
+    <a class="brand" href="./"><span class="brand-mark">TP</span><span>TechParts <b>3D</b><small>ADMINISTRATION</small></span></a>
+    <span class="secure-label"><i></i> Geschützter Verwaltungsbereich</span>
+  </div>
+  <main class="admin-shell">
+    <section class="intro">
+      <div class="eyebrow">KONTROLLE · DATEN · FORMULAR</div>
+      <h1>Admin-<em>Konsole.</em></h1>
+      <p>Verwalte Anfragen, ändere die Formularfelder ohne Codeänderung und exportiere übersichtliche Excel-Arbeitsmappen.</p>
+    </section>
+
+    <div id="setupAlert" class="alert alert-warn" role="status" hidden>
+      <strong>Backend noch nicht konfiguriert</strong>
+      <p>Die Supabase-Projektadresse und der öffentliche Schlüssel fehlen noch. Folge der Datei <code>BACKEND_SETUP_RU.md</code>. Ohne Backend funktioniert diese Admin-Konsole nicht und zeigt keine Anfragen an.</p>
+    </div>
+    <div id="globalMessage" class="message" role="status" aria-live="polite"></div>
+
+    <section id="loginPanel" class="panel login-panel" hidden>
+      <div class="panel-heading"><div><span class="eyebrow">ANMELDUNG</span><h2>Nur für Administratorin</h2></div><span class="panel-icon">⌑</span></div>
+      <p class="subtle">Melde dich mit dem Benutzer an, den du in Supabase angelegt und in der Tabelle <code>admin_users</code> freigeschaltet hast.</p>
+      <form id="loginForm">
+        <label>E-Mail-Adresse<input id="loginEmail" type="email" autocomplete="username" required placeholder="deine@email.de"></label>
+        <label>Passwort<input id="loginPassword" type="password" autocomplete="current-password" required minlength="8"></label>
+        <button class="button button-primary" type="submit">Anmelden <span>→</span></button>
+      </form>
+      <small class="subtle">Es gibt absichtlich keine öffentliche Registrierung in dieser Konsole.</small>
+    </section>
+
+    <section id="noAdminPanel" class="alert alert-danger" hidden>
+      <strong>Kein Administratorzugriff</strong>
+      <p>Du bist angemeldet, aber dein Konto steht nicht in <code>admin_users</code>. Melde dich ab und gib die Benutzer-ID nur über den Supabase SQL Editor frei.</p>
+      <button id="logoutNoAdmin" class="button button-outline" type="button">Abmelden</button>
+    </section>
+
+    <section id="dashboard" hidden>
+      <div class="dashboard-heading">
+        <div><span class="eyebrow">ÜBERSICHT</span><h2>Deine Anfragen</h2><p id="signedInAs" class="subtle"></p></div>
+        <div class="top-actions"><button id="refreshButton" class="button button-outline" type="button">Aktualisieren ↻</button><button id="logoutButton" class="button button-dark" type="button">Abmelden</button></div>
+      </div>
+      <div class="stats-grid">
+        <article class="stat-card"><span>ALLE ANFRAGEN</span><strong id="totalCount">0</strong><small>Gespeicherte Datensätze</small></article>
+        <article class="stat-card stat-warn"><span>NEU</span><strong id="newCount">0</strong><small>Benötigen Bearbeitung</small></article>
+        <article class="stat-card stat-progress"><span>IN BEARBEITUNG</span><strong id="progressCount">0</strong><small>Aktiv bearbeitet</small></article>
+        <article class="stat-card stat-done"><span>ABGESCHLOSSEN</span><strong id="closedCount">0</strong><small>Erledigte Vorgänge</small></article>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab active" data-tab="requests" type="button" role="tab" aria-selected="true">Anfragen</button>
+        <button class="tab" data-tab="fields" type="button" role="tab" aria-selected="false">Formular konfigurieren</button>
+        <button class="tab" data-tab="security" type="button" role="tab" aria-selected="false">Sicherheitscheck</button>
+      </div>
+      <section id="tab-requests" class="panel tab-panel">
+        <div class="panel-heading panel-heading-wrap"><div><span class="eyebrow">POSTEINGANG</span><h3>Gespeicherte Anfragen</h3><p class="subtle">Nur freigeschaltete Admin-Konten können diese Daten lesen. Der Export wird direkt in deinem Browser erzeugt.</p></div><button id="exportXlsxButton" class="button button-primary" type="button">Excel exportieren <span>↓</span></button></div>
+        <div id="requestsMessage" class="message" role="status"></div>
+        <div class="table-wrap"><table class="data-table" id="requestsTable"><thead></thead><tbody></tbody></table></div>
+        <p class="table-footnote">Es werden maximal die letzten 500 Einträge geladen. Ändere den Status über die Auswahl in der Tabelle. Exportiere sensible Dateien nur auf ein eigenes, geschütztes Gerät.</p>
+      </section>
+      <section id="tab-fields" class="panel tab-panel" hidden>
+        <div class="panel-heading"><div><span class="eyebrow">FORMULARBAUKASTEN</span><h3>Felder ohne Codeänderung anpassen</h3><p class="subtle">Ändere Beschriftungen, Typen, Pflichtangaben, Auswahloptionen und Reihenfolge. Änderungen werden zentral gespeichert und wirken sich auf das öffentliche Formular aus.</p></div></div>
+        <form id="newFieldForm" class="new-field-form">
+          <label>Feld-ID <input id="newFieldKey" pattern="[a-z][a-z0-9_]{1,39}" required placeholder="z. B. delivery_date"></label>
+          <label>Label Deutsch <input id="newFieldLabelDe" required placeholder="Gewünschter Liefertermin"></label>
+          <label>Label English <input id="newFieldLabelEn" required placeholder="Requested delivery date"></label>
+          <label>Typ <select id="newFieldType"><option value="text">Text</option><option value="email">E-Mail</option><option value="tel">Telefon</option><option value="number">Zahl</option><option value="date">Datum</option><option value="textarea">Textbereich</option><option value="select">Auswahl</option><option value="checkbox">Checkbox</option></select></label>
+          <button class="button button-dark" type="submit">Feld hinzufügen +</button>
+        </form>
+        <p class="helper-note">Für den Typ „Auswahl“ kannst du die Optionen unten komma-getrennt eintragen. Verwende stabile Feld-IDs ohne persönliche Daten, z. B. <code>delivery_date</code>.</p>
+        <div class="table-wrap"><table class="data-table fields-table"><thead><tr><th>Feld-ID</th><th>Label DE</th><th>Label EN</th><th>Typ</th><th>Pflicht</th><th>Aktiv</th><th>Optionen (Komma)</th><th>Reihenfolge</th><th></th></tr></thead><tbody id="fieldsBody"></tbody></table></div>
+        <div class="form-actions"><button id="saveFieldsButton" class="button button-primary" type="button">Konfiguration speichern <span>✓</span></button><span id="fieldSaveMessage" class="subtle"></span></div>
+      </section>
+      <section id="tab-security" class="panel tab-panel" hidden>
+        <div class="panel-heading"><div><span class="eyebrow">SICHERHEIT</span><h3>Technischer Sicherheitsstatus</h3><p class="subtle">Checkliste für dein Portfolio. Ein Haken ersetzt keinen unabhängigen Sicherheitstest.</p></div></div>
+        <div class="security-list">
+          <label><input type="checkbox" disabled checked> Anfragen sind durch Row Level Security gegen öffentliche Lesezugriffe geschützt (sofern <code>schema.sql</code> korrekt ausgeführt wurde).</label>
+          <label><input type="checkbox" disabled checked> Service-Role-Schlüssel wird nicht im Browser verwendet.</label>
+          <label><input type="checkbox"> Supabase Auth: eigenes, starkes Passwort und Mehr-Faktor-Authentifizierung geprüft.</label>
+          <label><input type="checkbox"> Datenschutzerklärung veröffentlicht und vor Veröffentlichung des echten Formulars geprüft.</label>
+          <label><input type="checkbox"> Backup-/Export-Prozess getestet; Excel-Dateien nur auf dem eigenen geschützten Gerät gespeichert.</label>
+          <label><input type="checkbox"> Anonyme Einreichungen auf Spam-/Missbrauchsrisiko geprüft; bei öffentlicher Nutzung Rate-Limit/CAPTCHA ergänzt.</label>
+        </div>
+        <div class="alert alert-warn"><strong>Wichtig</strong><p>Eine öffentlich erreichbare Formularschnittstelle kann ohne zusätzliche Missbrauchsbegrenzung mit Testanfragen zugespammt werden. Die Datenbankregeln schützen die Vertraulichkeit der Datensätze, sind allein aber kein vollständiger Spam-Schutz.</p></div>
+      </section>
+    </section>
+    <footer class="admin-footer"><a href="./">← Zur öffentlichen Portfolio-Seite</a><span>TechParts 3D · Lernprojekt · Daten nicht für vertrauliche Produktionsprozesse verwenden</span></footer>
+  </main>
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
