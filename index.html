@@ -84,6 +84,10 @@
             <label class="consent"><input type="checkbox" required><span data-i18n="consent">Ich bestätige, dass dies eine Demo-Anfrage mit Testdaten ist. *</span></label>
           </div>
           <div id="dynamicFormFields" hidden></div>
+          <div id="turnstileContainer" class="form-security-check" hidden style="margin:1rem 0;">
+            <p class="form-security-help" data-i18n="turnstileHint">Bitte bestätige die Sicherheitsprüfung, bevor du die Anfrage sendest.</p>
+            <div id="turnstileWidget"></div>
+          </div>
           <button type="submit" class="button button-accent submit-button"><span data-i18n="saveRequest">Anfrage lokal speichern</span><span>✓</span></button>
           <p class="form-message" id="formMessage" role="status" aria-live="polite"></p>
           <button type="button" id="exportAllRequests" class="button button-outline export-all-button" disabled><span data-i18n="exportAllRequests">Alle Anfragen gesammelt als CSV exportieren</span><strong id="requestCount">0</strong></button>

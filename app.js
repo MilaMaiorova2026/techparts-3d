@@ -1,12 +1,64 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { SUPABASE_URL, SUPABASE_ANON_KEY } from './supabase-config.js';
+import { TURNSTILE_SITE_KEY } from './turnstile-config.js';
 
 const backendConfigured = Boolean(SUPABASE_URL?.trim() && SUPABASE_ANON_KEY?.trim());
 let supabaseClient = null;
 let secureBackendLoadError = null;
 let backendFormFields = [];
 let backendFormReady = false;
+let turnstileWidgetId = null;
+let turnstileToken = null;
+let turnstileScriptPromise = null;
+
+function turnstileSiteKeyConfigured() {
+  return typeof TURNSTILE_SITE_KEY === 'string' &&
+    TURNSTILE_SITE_KEY.trim().length > 0 &&
+    !TURNSTILE_SITE_KEY.includes('PASTE_YOUR_SITE_KEY_HERE');
+}
+
+function loadTurnstileScript() {
+  if (window.turnstile) return Promise.resolve(window.turnstile);
+  if (turnstileScriptPromise) return turnstileScriptPromise;
+  turnstileScriptPromise = new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit';
+    script.async = true;
+    script.defer = true;
+    script.onload = () => window.turnstile ? resolve(window.turnstile) : reject(new Error('Turnstile API did not initialize.'));
+    script.onerror = () => reject(new Error('Could not load the Turnstile API.'));
+    document.head.appendChild(script);
+  });
+  return turnstileScriptPromise;
+}
+
+async function initializeTurnstile() {
+  const container = $('#turnstileContainer');
+  const widget = $('#turnstileWidget');
+  const submit = $('#requestForm button[type="submit"]');
+  if (!container || !widget || !submit) throw new Error('Turnstile HTML container is missing.');
+  container.hidden = false;
+  if (!turnstileSiteKeyConfigured()) {
+    throw new Error('Turnstile site key has not been configured.');
+  }
+  const api = await loadTurnstileScript();
+  turnstileWidgetId = api.render(widget, {
+    sitekey: TURNSTILE_SITE_KEY.trim(),
+    callback: token => { turnstileToken = token; },
+    'expired-callback': () => { turnstileToken = null; },
+    'error-callback': () => { turnstileToken = null; }
+  });
+}
+
+function resetTurnstile() {
+  turnstileToken = null;
+  if (turnstileWidgetId !== null && window.turnstile) {
+    try { window.turnstile.reset(turnstileWidgetId); }
+    catch (error) { console.warn('Could not reset the Turnstile widget.', error); }
+  }
+}
+
 if (backendConfigured) {
   try {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
@@ -73,8 +125,8 @@ const parts = [
 ];
 
 const words = {
- de:{demo:'DEMO-PROJEKT · TECHNISCHER BAUTEILKATALOG',static:'Statische Demo · keine echten Bestellungen',navCatalog:'Bauteilkatalog',navProcess:'So funktioniert’s',navAbout:'Projekt',navRequest:'Anfrage stellen',heroEyebrow:'DIGITALE TECHNIK. KLAR GEDACHT.',heroTitle:'Das richtige Bauteil.<br><em>Bis ins Detail.</em>',heroLead:'Technische Komponenten entdecken, 3D-Modelle erkunden und Produktdaten auf einen Blick vergleichen.',explore:'Bauteile entdecken',howItWorks:'Wie es funktioniert',proofTitle:'Technische Daten an einem Ort',proofSub:'Modell · Zeichnung · Verfügbarkeit',interactiveModel:'INTERAKTIVES 3D-MODELL',dragHint:'Ziehen zum Drehen · Scrollen zum Zoomen',sampleModel:'EIGENES CAD-MODELL / STUFENWELLE',heroBottom:'ENGINEERING MEETS SOFTWARE',metric1:'Interaktives 3D-Modell',metric2:'Technische Spezifikationen',metric3:'Schnelle Anfrage',metric4:'Zweisprachige Oberfläche',catalogEyebrow:'PRODUKTE / 01',catalogTitle:'Bauteile im <em>Überblick.</em>',catalogDesc:'Sieh dir die drei eigenen CAD-Modelle direkt in den Karten an und öffne die zugehörigen Originalzeichnungen.',searchPlaceholder:'Bauteil, Material oder Artikelnummer suchen …',filterAll:'Alle Bauteile',filterShaft:'Wellen',filterPulley:'Riemenscheiben',filterBearing:'Lager',detailEyebrow:'PRODUKTDETAILS / 02',modelViewer:'3D-MODELLANSICHT',viewerHint:'Maus ziehen: drehen · Scrollen: zoomen',technicalData:'TECHNISCHE DATEN',specTitle:'Spezifikationen',technicalDrawing:'TECHNISCHE ZEICHNUNG',drawingTitle:'Originalzeichnung (PDF)',drawingNote:'Original-PDF öffnen.',viewDrawing:'Zeichnung ansehen',stock:'LAGERBESTAND',application:'ANWENDUNG',applicationTitle:'Eigene CAD-Konstruktionen im Portfolio.',delivery:'LIEFERZEIT / ORIENTIERUNG',deliveryTitle:'Menge beeinflusst die Lieferzeit.',deliveryDesc:'Unverbindliche Beispielrechnung auf Basis einer angenommenen Produktionskapazität.',quantity:'Gewünschte Menge',pieces:'Stück',estimatedDelivery:'Geschätzte Lieferzeit',deliveryDisclaimer:'Nur demonstrative Berechnung; keine echten Lieferdaten.',requestEyebrow:'KONTAKT / 03',requestTitle:'Lass uns über dein <em>Projekt sprechen.</em>',requestDesc:'Anfragen werden in diesem Browser gesammelt und können später gemeinsam als CSV-Datei für Excel exportiert werden. Es wird nichts an einen Server übertragen.',requestPoint1:'Bauteil und Menge auswählen',requestPoint2:'Kontaktdaten eintragen',requestPoint3:'Alle Anfragen gesammelt exportieren',privacyNote:'Bitte keine echten sensiblen Daten verwenden. Dies ist ein öffentliches Portfolio-Demo-Projekt ohne Backend.',formLabel:'ANFRAGEFORMULAR',labelName:'Vor- und Nachname *',labelCompany:'Unternehmen',labelEmail:'E-Mail-Adresse *',labelPhone:'Telefon (optional)',labelPart:'Bauteil *',labelQuantity:'Menge (Stück) *',labelMessage:'Nachricht / Anmerkungen',messagePlaceholder:'Ihre Anforderungen oder Fragen …',consent:'Ich bestätige, dass dies eine Demo-Anfrage mit Testdaten ist. *',exportRequest:'Anfrage lokal speichern',formFootnote:'* Pflichtfelder · Anfragen bleiben in diesem Browser, bis du sie gesammelt exportierst.',projectEyebrow:'ÜBER DAS PROJEKT',projectTitle:'Ingenieurwissen trifft <em>Softwareentwicklung.</em>',projectDesc:'TechParts 3D ist ein eigenständiges Portfolio-Projekt. Es verbindet CAD-Grundlagen mit Webentwicklung und zeigt, wie technische Produktinformationen digital strukturiert und zugänglich gemacht werden können.',projectNote:'Die CAD-Modelle und Zeichnungen wurden für dieses Portfolio erstellt. Lagerbestände (24 / 7 / 0 Stück) und Lieferzeiten sind fiktive Demo-Werte, keine realen Bestandsdaten.',footerText:'Unabhängiges Ausbildungs- und Portfolio-Projekt.',backTop:'Nach oben ↑',available:'Auf Lager (Demo)',lowStock:'Geringer Bestand (Demo)',outOfStock:'Nicht auf Lager (Demo)',piecesInStock:'Stück verfügbar (Demo-Bestand)',noResults:'Keine passenden Bauteile gefunden.',partDetails:'Details ansehen',from:'Demo-Richtpreis',deliveryStock:'Auf Lager: voraussichtlich 2–4 Werktage',deliveryLow:'Kleine Menge verfügbar: voraussichtlich 4–7 Werktage',deliveryOut:'Nicht auf Lager: Fertigung/Bestellung prüfen',deliveryMedium:'Voraussichtlich 5–8 Werktage',deliveryLarge:'Voraussichtlich 8–15 Werktage',deliveryVeryLarge:'Individuelle Terminprüfung erforderlich',drawingDialogLabel:'TECHNISCHE ZEICHNUNG',drawingDisclaimer:'Dies sind die bereitgestellten Originalzeichnungen. Maßgeblich sind die Angaben in den jeweiligen Zeichnungsdateien.',success:'Demo-Anfrage wurde als CSV-Datei exportiert. Es wurden keine Daten an einen Server übertragen.',error:'Bitte prüfe die Pflichtfelder und gib eine gültige E-Mail-Adresse ein.',formPartPlaceholder:'Bauteil auswählen',saveRequest:'Anfrage lokal speichern',exportAllRequests:'Alle Anfragen gesammelt als CSV exportieren',requestSaved:'Anfrage lokal gespeichert. Insgesamt {count} Anfragen in diesem Browser.',noRequests:'Noch keine Anfragen gespeichert.',requestsExported:'{count} Anfragen in einer gemeinsamen CSV-Datei exportiert.',processEyebrow:'VOM CAD INS WEB',processTitle:'Vom Entwurf bis zum <em>Browser.</em>',processDesc:'Drei eigene CAD-Modelle, für das Web exportiert und mit den Originalzeichnungen verbunden.',processStep1Title:'01 · Konstruieren',processStep1Text:'Stufenwelle und Keilriemenscheibe in KOMPAS-3D v25; Wälzlager in Autodesk Fusion.',processStep2Title:'02 · Exportieren',processStep2Text:'GLB für die 3D-Vorschau und PDF für technische Zeichnungen.',processStep3Title:'03 · Interaktiv darstellen',processStep3Text:'Three.js lädt die Modelle im Browser. Modelle, Spezifikationen und Zeichnungen sind getrennt zugänglich.'},
- en:{demo:'DEMO PROJECT · TECHNICAL PARTS CATALOG',static:'Static demo · no real orders',navCatalog:'Parts catalog',navProcess:'How it works',navAbout:'Project',navRequest:'Make an inquiry',heroEyebrow:'DIGITAL ENGINEERING. CLEARLY DESIGNED.',heroTitle:'The right component.<br><em>Down to the detail.</em>',heroLead:'Discover technical components, explore 3D models, and compare product data at a glance.',explore:'Explore components',howItWorks:'How it works',proofTitle:'Technical data in one place',proofSub:'Model · drawing · availability',interactiveModel:'INTERACTIVE 3D MODEL',dragHint:'Drag to rotate · Scroll to zoom',sampleModel:'OWN CAD MODEL / STEPPED SHAFT',heroBottom:'ENGINEERING MEETS SOFTWARE',metric1:'Interactive 3D model',metric2:'Technical specifications',metric3:'Quick inquiry',metric4:'Bilingual interface',catalogEyebrow:'PRODUCTS / 01',catalogTitle:'Parts at a <em>glance.</em>',catalogDesc:'Preview three self-created CAD models directly in the cards and open the associated original drawings.',searchPlaceholder:'Search part, material, or part number …',filterAll:'All components',filterShaft:'Shafts',filterPulley:'Pulleys',filterBearing:'Bearings',detailEyebrow:'PRODUCT DETAILS / 02',modelViewer:'3D MODEL VIEWER',viewerHint:'Drag to rotate · Scroll to zoom',technicalData:'TECHNICAL DATA',specTitle:'Specifications',technicalDrawing:'TECHNICAL DRAWING',drawingTitle:'Original drawing (PDF)',drawingNote:'Open original PDF.',viewDrawing:'View drawing',stock:'INVENTORY',application:'APPLICATION',applicationTitle:'Original CAD work in the portfolio.',delivery:'LEAD TIME / ESTIMATE',deliveryTitle:'Quantity affects lead time.',deliveryDesc:'Illustrative estimate based on an assumed production capacity.',quantity:'Requested quantity',pieces:'pcs',estimatedDelivery:'Estimated lead time',deliveryDisclaimer:'Demonstration only; these are not real lead-time data.',requestEyebrow:'CONTACT / 03',requestTitle:'Let’s talk about your <em>project.</em>',requestDesc:'Inquiries are collected in this browser and can later be exported together as a CSV file for Excel. Nothing is sent to a server.',requestPoint1:'Choose a part and quantity',requestPoint2:'Enter contact details',requestPoint3:'Export all inquiries together',privacyNote:'Please do not use real sensitive data. This public portfolio demo has no backend.',formLabel:'INQUIRY FORM',labelName:'Full name *',labelCompany:'Company',labelEmail:'Email address *',labelPhone:'Phone (optional)',labelPart:'Component *',labelQuantity:'Quantity (pcs) *',labelMessage:'Message / notes',messagePlaceholder:'Your requirements or questions …',consent:'I confirm this is a demo inquiry using test data. *',exportRequest:'Save inquiry locally',formFootnote:'* Required fields · Inquiries stay in this browser until you export them together.',projectEyebrow:'ABOUT THE PROJECT',projectTitle:'Engineering knowledge meets <em>software development.</em>',projectDesc:'TechParts 3D is an independent portfolio project. It combines CAD fundamentals with web development and demonstrates how technical product information can be structured and made accessible digitally.',projectNote:'The CAD models and drawings were created for this portfolio. Inventory levels (24 / 7 / 0 pcs) and lead times are fictional demo values, not real stock data.',footerText:'Independent training and portfolio project.',backTop:'Back to top ↑',available:'In stock (demo)',lowStock:'Low stock (demo)',outOfStock:'Out of stock (demo)',piecesInStock:'pcs available (demo stock)',noResults:'No matching components found.',partDetails:'View details',from:'Indicative demo price',deliveryStock:'In stock: estimated 2–4 business days',deliveryLow:'Limited stock: estimated 4–7 business days',deliveryOut:'Out of stock: check production/order options',deliveryMedium:'Estimated 5–8 business days',deliveryLarge:'Estimated 8–15 business days',deliveryVeryLarge:'Individual delivery date review required',drawingDialogLabel:'TECHNICAL DRAWING',drawingDisclaimer:'These are the provided original drawings. Refer to each drawing file for its technical information.',success:'Demo inquiry exported as a CSV file. No data was sent to a server.',error:'Please check required fields and enter a valid email address.',formPartPlaceholder:'Select a component',saveRequest:'Save inquiry locally',exportAllRequests:'Export all inquiries together as CSV',requestSaved:'Inquiry saved in this browser. Total saved inquiries: {count}.',noRequests:'No inquiries have been saved yet.',requestsExported:'Exported {count} inquiries in one combined CSV file.',processEyebrow:'FROM CAD TO WEB',processTitle:'From design to the <em>browser.</em>',processDesc:'Three self-created CAD models, exported for the web and connected to their original technical drawings.',processStep1Title:'01 · Design',processStep1Text:'Stepped shaft and V-belt pulley in KOMPAS-3D v25; rolling bearing in Autodesk Fusion.',processStep2Title:'02 · Export',processStep2Text:'GLB for the 3D preview and PDF for technical drawings.',processStep3Title:'03 · Present interactively',processStep3Text:'Three.js loads the models in the browser. Models, specifications and drawings remain separately accessible.'}
+ de:{demo:'DEMO-PROJEKT · TECHNISCHER BAUTEILKATALOG',static:'Statische Demo · keine echten Bestellungen',navCatalog:'Bauteilkatalog',navProcess:'So funktioniert’s',navAbout:'Projekt',navRequest:'Anfrage stellen',heroEyebrow:'DIGITALE TECHNIK. KLAR GEDACHT.',heroTitle:'Das richtige Bauteil.<br><em>Bis ins Detail.</em>',heroLead:'Technische Komponenten entdecken, 3D-Modelle erkunden und Produktdaten auf einen Blick vergleichen.',explore:'Bauteile entdecken',howItWorks:'Wie es funktioniert',proofTitle:'Technische Daten an einem Ort',proofSub:'Modell · Zeichnung · Verfügbarkeit',interactiveModel:'INTERAKTIVES 3D-MODELL',dragHint:'Ziehen zum Drehen · Scrollen zum Zoomen',sampleModel:'EIGENES CAD-MODELL / STUFENWELLE',heroBottom:'ENGINEERING MEETS SOFTWARE',metric1:'Interaktives 3D-Modell',metric2:'Technische Spezifikationen',metric3:'Schnelle Anfrage',metric4:'Zweisprachige Oberfläche',catalogEyebrow:'PRODUKTE / 01',catalogTitle:'Bauteile im <em>Überblick.</em>',catalogDesc:'Sieh dir die drei eigenen CAD-Modelle direkt in den Karten an und öffne die zugehörigen Originalzeichnungen.',searchPlaceholder:'Bauteil, Material oder Artikelnummer suchen …',filterAll:'Alle Bauteile',filterShaft:'Wellen',filterPulley:'Riemenscheiben',filterBearing:'Lager',detailEyebrow:'PRODUKTDETAILS / 02',modelViewer:'3D-MODELLANSICHT',viewerHint:'Maus ziehen: drehen · Scrollen: zoomen',technicalData:'TECHNISCHE DATEN',specTitle:'Spezifikationen',technicalDrawing:'TECHNISCHE ZEICHNUNG',drawingTitle:'Originalzeichnung (PDF)',drawingNote:'Original-PDF öffnen.',viewDrawing:'Zeichnung ansehen',stock:'LAGERBESTAND',application:'ANWENDUNG',applicationTitle:'Eigene CAD-Konstruktionen im Portfolio.',delivery:'LIEFERZEIT / ORIENTIERUNG',deliveryTitle:'Menge beeinflusst die Lieferzeit.',deliveryDesc:'Unverbindliche Beispielrechnung auf Basis einer angenommenen Produktionskapazität.',quantity:'Gewünschte Menge',pieces:'Stück',estimatedDelivery:'Geschätzte Lieferzeit',deliveryDisclaimer:'Nur demonstrative Berechnung; keine echten Lieferdaten.',requestEyebrow:'KONTAKT / 03',requestTitle:'Lass uns über dein <em>Projekt sprechen.</em>',requestDesc:'Anfragen werden in diesem Browser gesammelt und können später gemeinsam als CSV-Datei für Excel exportiert werden. Es wird nichts an einen Server übertragen.',requestPoint1:'Bauteil und Menge auswählen',requestPoint2:'Kontaktdaten eintragen',requestPoint3:'Alle Anfragen gesammelt exportieren',privacyNote:'Bitte keine echten sensiblen Daten verwenden. Dies ist ein öffentliches Portfolio-Demo-Projekt ohne Backend.',formLabel:'ANFRAGEFORMULAR',labelName:'Vor- und Nachname *',labelCompany:'Unternehmen',labelEmail:'E-Mail-Adresse *',labelPhone:'Telefon (optional)',labelPart:'Bauteil *',labelQuantity:'Menge (Stück) *',labelMessage:'Nachricht / Anmerkungen',messagePlaceholder:'Ihre Anforderungen oder Fragen …',consent:'Ich bestätige, dass dies eine Demo-Anfrage mit Testdaten ist. *',exportRequest:'Anfrage lokal speichern',formFootnote:'* Pflichtfelder · Anfragen bleiben in diesem Browser, bis du sie gesammelt exportierst.',turnstileHint:'Bitte bestätige die Sicherheitsprüfung, bevor du die Anfrage sendest.',projectEyebrow:'ÜBER DAS PROJEKT',projectTitle:'Ingenieurwissen trifft <em>Softwareentwicklung.</em>',projectDesc:'TechParts 3D ist ein eigenständiges Portfolio-Projekt. Es verbindet CAD-Grundlagen mit Webentwicklung und zeigt, wie technische Produktinformationen digital strukturiert und zugänglich gemacht werden können.',projectNote:'Die CAD-Modelle und Zeichnungen wurden für dieses Portfolio erstellt. Lagerbestände (24 / 7 / 0 Stück) und Lieferzeiten sind fiktive Demo-Werte, keine realen Bestandsdaten.',footerText:'Unabhängiges Ausbildungs- und Portfolio-Projekt.',backTop:'Nach oben ↑',available:'Auf Lager (Demo)',lowStock:'Geringer Bestand (Demo)',outOfStock:'Nicht auf Lager (Demo)',piecesInStock:'Stück verfügbar (Demo-Bestand)',noResults:'Keine passenden Bauteile gefunden.',partDetails:'Details ansehen',from:'Demo-Richtpreis',deliveryStock:'Auf Lager: voraussichtlich 2–4 Werktage',deliveryLow:'Kleine Menge verfügbar: voraussichtlich 4–7 Werktage',deliveryOut:'Nicht auf Lager: Fertigung/Bestellung prüfen',deliveryMedium:'Voraussichtlich 5–8 Werktage',deliveryLarge:'Voraussichtlich 8–15 Werktage',deliveryVeryLarge:'Individuelle Terminprüfung erforderlich',drawingDialogLabel:'TECHNISCHE ZEICHNUNG',drawingDisclaimer:'Dies sind die bereitgestellten Originalzeichnungen. Maßgeblich sind die Angaben in den jeweiligen Zeichnungsdateien.',success:'Demo-Anfrage wurde als CSV-Datei exportiert. Es wurden keine Daten an einen Server übertragen.',error:'Bitte prüfe die Pflichtfelder und gib eine gültige E-Mail-Adresse ein.',formPartPlaceholder:'Bauteil auswählen',saveRequest:'Anfrage lokal speichern',exportAllRequests:'Alle Anfragen gesammelt als CSV exportieren',requestSaved:'Anfrage lokal gespeichert. Insgesamt {count} Anfragen in diesem Browser.',noRequests:'Noch keine Anfragen gespeichert.',requestsExported:'{count} Anfragen in einer gemeinsamen CSV-Datei exportiert.',processEyebrow:'VOM CAD INS WEB',processTitle:'Vom Entwurf bis zum <em>Browser.</em>',processDesc:'Drei eigene CAD-Modelle, für das Web exportiert und mit den Originalzeichnungen verbunden.',processStep1Title:'01 · Konstruieren',processStep1Text:'Stufenwelle und Keilriemenscheibe in KOMPAS-3D v25; Wälzlager in Autodesk Fusion.',processStep2Title:'02 · Exportieren',processStep2Text:'GLB für die 3D-Vorschau und PDF für technische Zeichnungen.',processStep3Title:'03 · Interaktiv darstellen',processStep3Text:'Three.js lädt die Modelle im Browser. Modelle, Spezifikationen und Zeichnungen sind getrennt zugänglich.'},
+ en:{demo:'DEMO PROJECT · TECHNICAL PARTS CATALOG',static:'Static demo · no real orders',navCatalog:'Parts catalog',navProcess:'How it works',navAbout:'Project',navRequest:'Make an inquiry',heroEyebrow:'DIGITAL ENGINEERING. CLEARLY DESIGNED.',heroTitle:'The right component.<br><em>Down to the detail.</em>',heroLead:'Discover technical components, explore 3D models, and compare product data at a glance.',explore:'Explore components',howItWorks:'How it works',proofTitle:'Technical data in one place',proofSub:'Model · drawing · availability',interactiveModel:'INTERACTIVE 3D MODEL',dragHint:'Drag to rotate · Scroll to zoom',sampleModel:'OWN CAD MODEL / STEPPED SHAFT',heroBottom:'ENGINEERING MEETS SOFTWARE',metric1:'Interactive 3D model',metric2:'Technical specifications',metric3:'Quick inquiry',metric4:'Bilingual interface',catalogEyebrow:'PRODUCTS / 01',catalogTitle:'Parts at a <em>glance.</em>',catalogDesc:'Preview three self-created CAD models directly in the cards and open the associated original drawings.',searchPlaceholder:'Search part, material, or part number …',filterAll:'All components',filterShaft:'Shafts',filterPulley:'Pulleys',filterBearing:'Bearings',detailEyebrow:'PRODUCT DETAILS / 02',modelViewer:'3D MODEL VIEWER',viewerHint:'Drag to rotate · Scroll to zoom',technicalData:'TECHNICAL DATA',specTitle:'Specifications',technicalDrawing:'TECHNICAL DRAWING',drawingTitle:'Original drawing (PDF)',drawingNote:'Open original PDF.',viewDrawing:'View drawing',stock:'INVENTORY',application:'APPLICATION',applicationTitle:'Original CAD work in the portfolio.',delivery:'LEAD TIME / ESTIMATE',deliveryTitle:'Quantity affects lead time.',deliveryDesc:'Illustrative estimate based on an assumed production capacity.',quantity:'Requested quantity',pieces:'pcs',estimatedDelivery:'Estimated lead time',deliveryDisclaimer:'Demonstration only; these are not real lead-time data.',requestEyebrow:'CONTACT / 03',requestTitle:'Let’s talk about your <em>project.</em>',requestDesc:'Inquiries are collected in this browser and can later be exported together as a CSV file for Excel. Nothing is sent to a server.',requestPoint1:'Choose a part and quantity',requestPoint2:'Enter contact details',requestPoint3:'Export all inquiries together',privacyNote:'Please do not use real sensitive data. This public portfolio demo has no backend.',formLabel:'INQUIRY FORM',labelName:'Full name *',labelCompany:'Company',labelEmail:'Email address *',labelPhone:'Phone (optional)',labelPart:'Component *',labelQuantity:'Quantity (pcs) *',labelMessage:'Message / notes',messagePlaceholder:'Your requirements or questions …',consent:'I confirm this is a demo inquiry using test data. *',exportRequest:'Save inquiry locally',formFootnote:'* Required fields · Inquiries stay in this browser until you export them together.',turnstileHint:'Please complete the security check before submitting the inquiry.',projectEyebrow:'ABOUT THE PROJECT',projectTitle:'Engineering knowledge meets <em>software development.</em>',projectDesc:'TechParts 3D is an independent portfolio project. It combines CAD fundamentals with web development and demonstrates how technical product information can be structured and made accessible digitally.',projectNote:'The CAD models and drawings were created for this portfolio. Inventory levels (24 / 7 / 0 pcs) and lead times are fictional demo values, not real stock data.',footerText:'Independent training and portfolio project.',backTop:'Back to top ↑',available:'In stock (demo)',lowStock:'Low stock (demo)',outOfStock:'Out of stock (demo)',piecesInStock:'pcs available (demo stock)',noResults:'No matching components found.',partDetails:'View details',from:'Indicative demo price',deliveryStock:'In stock: estimated 2–4 business days',deliveryLow:'Limited stock: estimated 4–7 business days',deliveryOut:'Out of stock: check production/order options',deliveryMedium:'Estimated 5–8 business days',deliveryLarge:'Estimated 8–15 business days',deliveryVeryLarge:'Individual delivery date review required',drawingDialogLabel:'TECHNICAL DRAWING',drawingDisclaimer:'These are the provided original drawings. Refer to each drawing file for its technical information.',success:'Demo inquiry exported as a CSV file. No data was sent to a server.',error:'Please check required fields and enter a valid email address.',formPartPlaceholder:'Select a component',saveRequest:'Save inquiry locally',exportAllRequests:'Export all inquiries together as CSV',requestSaved:'Inquiry saved in this browser. Total saved inquiries: {count}.',noRequests:'No inquiries have been saved yet.',requestsExported:'Exported {count} inquiries in one combined CSV file.',processEyebrow:'FROM CAD TO WEB',processTitle:'From design to the <em>browser.</em>',processDesc:'Three self-created CAD models, exported for the web and connected to their original technical drawings.',processStep1Title:'01 · Design',processStep1Text:'Stepped shaft and V-belt pulley in KOMPAS-3D v25; rolling bearing in Autodesk Fusion.',processStep2Title:'02 · Export',processStep2Text:'GLB for the 3D preview and PDF for technical drawings.',processStep3Title:'03 · Present interactively',processStep3Text:'Three.js loads the models in the browser. Models, specifications and drawings remain separately accessible.'}
 };
 let lang='de', activeFilter='all', selectedId='TP-CAD-001', heroViewer=null, detailViewer=null;
 let cardPreviewDisposers=[];
@@ -323,15 +375,47 @@ $('#requestForm').addEventListener('submit',async e=>{
       else payload[field.field_key]=String(input.value??'').trim();
     }
     payload._language=lang;
-    try{
-      const {error}=await supabaseClient.from('inquiries').insert({data:payload});
-      if(error)throw error;
-      $('#formMessage').textContent=lang==='de'?'Vielen Dank. Die Anfrage wurde übermittelt.':'Thank you. Your inquiry was submitted.';
-      $('#formMessage').classList.remove('error');form.reset();return;
-    }catch(error){
-      console.error('Secure inquiry submission failed:',error);
-      $('#formMessage').textContent=lang==='de'?'Übermittlung fehlgeschlagen. Bitte später erneut versuchen. Es wurden keine lokalen Kopien erstellt.':'Submission failed. Please try again later. No local copy was created.';
-      $('#formMessage').classList.add('error');return;
+    const submitButton = $('#requestForm button[type="submit"]');
+    if (!turnstileToken) {
+      $('#formMessage').textContent = lang === 'de'
+        ? 'Bitte bestätige zuerst die Sicherheitsprüfung. Es wurden keine Daten gespeichert.'
+        : 'Please complete the security check first. No data was saved.';
+      $('#formMessage').classList.add('error');
+      return;
+    }
+    const tokenForRequest = turnstileToken;
+    submitButton.disabled = true;
+    try {
+      // Send the publishable key in the apikey header only. Do not send it as a Bearer JWT.
+      const functionResponse = await fetch(`${SUPABASE_URL.trim().replace(/\/+$/, '')}/functions/v1/submit-inquiry`, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_ANON_KEY.trim(),
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ payload, turnstileToken: tokenForRequest })
+      });
+      const functionResult = await functionResponse.json().catch(() => ({ error: 'invalid_response' }));
+      if (!functionResponse.ok || functionResult?.ok !== true) {
+        throw new Error(functionResult?.error || `Function request failed (${functionResponse.status}).`);
+      }
+      $('#formMessage').textContent = lang === 'de'
+        ? 'Vielen Dank. Die Anfrage wurde sicher übermittelt.'
+        : 'Thank you. Your inquiry was securely submitted.';
+      $('#formMessage').classList.remove('error');
+      form.reset();
+      resetTurnstile();
+      return;
+    } catch (error) {
+      console.error('Secure inquiry submission failed:', error);
+      resetTurnstile();
+      $('#formMessage').textContent = lang === 'de'
+        ? 'Übermittlung fehlgeschlagen. Bitte Sicherheitsprüfung wiederholen und erneut versuchen. Es wurden keine lokalen Kopien erstellt.'
+        : 'Submission failed. Please complete the security check again and retry. No local copy was created.';
+      $('#formMessage').classList.add('error');
+      return;
+    } finally {
+      submitButton.disabled = false;
     }
   }
   // Legacy portfolio demo mode (only when no backend credentials are configured). Use test data only.
@@ -381,6 +465,18 @@ async function initializeSecureRequestForm(){
     backendFormFields=data;backendFormReady=true;
     legacy.querySelectorAll('input,select,textarea,button').forEach(control=>{control.disabled=true;if(control.name){control.dataset.legacyName=control.name;control.name=`legacy_${control.name}`;}});
     legacy.hidden=true;dynamic.hidden=false;renderSecureFormFields();
+    try {
+      await initializeTurnstile();
+      if (submit) submit.disabled = false;
+    } catch (securityError) {
+      console.error('Turnstile could not be initialized:', securityError);
+      backendFormReady = false;
+      if (submit) submit.disabled = true;
+      $('#formMessage').textContent = lang === 'de'
+        ? 'Sicherheitsprüfung ist noch nicht eingerichtet. Es wurden keine Daten gespeichert.'
+        : 'Security verification is not configured yet. No data was saved.';
+      $('#formMessage').classList.add('error');
+    }
   }catch(error){
     console.error('Could not load public form configuration:',error);
     if(submit)submit.disabled=true;
